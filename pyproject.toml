@@ -1,0 +1,28 @@
+[project]
+name = "bs-blindspots"
+version = "0.1.0"
+description = "Investigating when and why Black-Scholes misprices options using real market data and ML"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "yfinance",
+    "fredapi",
+    "xgboost",
+    "lightgbm",
+    "shap",
+    "scikit-learn",
+    "plotly",
+    "matplotlib",
+    "python-dotenv",
+    "jupyter",
+    "pytest",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
