@@ -17,6 +17,7 @@ dependencies = [
     "plotly",
     "matplotlib",
     "polygon-api-client",
+    "lxml",
     "python-dotenv",
     "jupyter",
     "pytest",
