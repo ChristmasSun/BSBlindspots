@@ -41,8 +41,20 @@ This is NOT a "we implemented BS and compared prices" project. It is an empirica
 | VIX | yfinance ticker `^VIX` | Vol regime feature |
 | Risk-free rate | Alpha Vantage `TREASURY_YIELD` (3month maturity) | Match to option maturity. Free tier: 25 req/day. |
 | Earnings dates | yfinance `.calendar` | For event flagging |
+| Fed meeting dates | TODO | FOMC schedule — scrape from federalreserve.gov or use static calendar |
+| Macro events (CPI, jobs) | TODO | BLS release calendar — key dates that move vol |
 
 **API keys needed:** Alpha Vantage (free at alphavantage.co), Polygon.io (free at polygon.io). Store in `.env` as `ALPHA_VANTAGE_API_KEY` and `POLYGON_API_KEY`.
+
+### Event Data TODO
+
+The core thesis is event-conditioned mispricing, so we need robust event calendars:
+
+- [ ] **Fed meeting dates (FOMC)** — ~8 meetings/year, major vol events. Source: federalreserve.gov or static list.
+- [ ] **CPI release dates** — monthly, moves rates + vol. Source: BLS schedule.
+- [ ] **Jobs report dates (NFP)** — monthly, first Friday. Source: BLS schedule.
+- [ ] **Multi-date historical options** — current pipeline only has single-day snapshots. Need Polygon historical or daily yfinance cron to get options across different event windows.
+- [ ] **earnings_direction feature** — listed in feature spec but not yet implemented in `build_features.py`.
 
 ## Target Universe
 
