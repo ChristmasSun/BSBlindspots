@@ -13,7 +13,7 @@ Package management: uv (https://docs.astral.sh/uv/). Use `uv sync` to install de
 Python 3.11+
 pandas, numpy, scipy
 yfinance (stock prices, options chains, VIX)
-fredapi (risk-free rate from FRED)
+alpha_vantage (risk-free rate via Treasury Yield endpoint)
 xgboost, lightgbm
 shap
 scikit-learn
@@ -23,8 +23,8 @@ jupyter notebooks for research/EDA
 pytest for pipeline tests
 
 Data Sources
-DataSourceNotesStock prices (OHLCV)yfinanceFree, no key neededOptions chainsyfinanceCurrent chains only; collect daily via scriptVIXyfinance ticker ^VIXVol regime featureRisk-free rateFRED API (DGS3MO)Match to option maturityEarnings datesyfinance .calendarFor event flagging
-API keys needed: FRED (free at fred.stlouisfed.org). Store in .env as FRED_API_KEY.
+DataSourceNotesStock prices (OHLCV)yfinanceFree, no key neededOptions chainsyfinanceCurrent chains only; collect daily via scriptOptions chains (historical)Polygon.io (now Massive.com)Free tier: 2yr EOD, 5 req/min. Starter ($29/mo) adds flat files with bid/ask. Use polygon-api-client SDK.VIXyfinance ticker ^VIXVol regime featureRisk-free rateAlpha Vantage TREASURY_YIELD (3month maturity)Match to option maturity. Free tier: 25 req/day.Earnings datesyfinance .calendarFor event flagging
+API keys needed: Alpha Vantage (free at alphavantage.co), Polygon.io (free at polygon.io). Store in .env as ALPHA_VANTAGE_API_KEY and POLYGON_API_KEY.
 Target Universe
 
 Tickers: SPY, AAPL, NVDA, MSFT (start with SPY + AAPL)
@@ -160,4 +160,24 @@ All data pulls cache to data/raw/ so we don't re-hit APIs constantly
 .env for all API keys, never hardcoded
 
 Current Status
-Not started. Initialize from scratch.
+Full pipeline implemented. All modules built:
+
+Data layer:
+- src/data/fetch_stocks.py — yfinance OHLCV + log returns, 12hr cache
+- src/data/fetch_rates.py — Alpha Vantage 3mo Treasury yield, date lookup helper
+- src/data/fetch_options.py — yfinance current chains + Polygon.io historical, all filters applied
+- src/data/fetch_events.py — earnings dates + VIX history + regime helper
+
+Pricing layer:
+- src/pricing/black_scholes.py — BS pricer, greeks, error metrics (abs, signed, rel, sq)
+- src/pricing/volatility.py — rolling historical vol (20d, 60d), vol ratio, vol of vol
+
+Feature engineering:
+- src/features/build_features.py — assembles full feature matrix from all data + pricing modules
+
+Model layer:
+- src/models/train.py — XGBoost + LightGBM with time-based splits, TimeSeriesSplit CV
+- src/models/evaluate.py — metrics, baseline comparison, regime/moneyness breakdowns
+- src/models/explain.py — SHAP analysis: summary, dependence, interaction, calls vs puts
+
+See LIMITATIONS.md for known data limitations (Polygon free tier approximations).
