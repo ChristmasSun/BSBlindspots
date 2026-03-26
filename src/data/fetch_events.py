@@ -80,10 +80,10 @@ def get_days_to_next_earnings(date: datetime.date, ticker: str, earnings_df: pd.
     if ticker_df.empty:
         return None
 
-    target = pd.Timestamp(date)
+    target = pd.Timestamp(date).tz_localize(None)
     future_dates = []
     for _, row in ticker_df.iterrows():
-        earn_date = pd.Timestamp(row["date"])
+        earn_date = pd.Timestamp(row["date"]).tz_localize(None)
         if earn_date >= target:
             future_dates.append(earn_date)
 
@@ -100,10 +100,10 @@ def get_days_since_last_earnings(date: datetime.date, ticker: str, earnings_df: 
     if ticker_df.empty:
         return None
 
-    target = pd.Timestamp(date)
+    target = pd.Timestamp(date).tz_localize(None)
     past_dates = []
     for _, row in ticker_df.iterrows():
-        earn_date = pd.Timestamp(row["date"])
+        earn_date = pd.Timestamp(row["date"]).tz_localize(None)
         if earn_date <= target:
             past_dates.append(earn_date)
 
