@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 
 from src.data.fetch_stocks import fetch_ticker
-from src.data.fetch_options import fetch_current_chains, fetch_historical_options
+from src.data.fetch_options import fetch_current_chains, load_cached_options
 from src.data.fetch_rates import load_treasury_rates
 from src.data.fetch_events import (
     fetch_earnings_dates,
@@ -25,6 +25,9 @@ from src.pricing.volatility import compute_vol_features, compute_vol_of_vol
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FEATURES_DIR = PROJECT_ROOT / "data" / "features"
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+FEATURE_SNAPSHOT_DIR = FEATURES_DIR / "snapshots"
+PROCESSED_SNAPSHOT_DIR = PROCESSED_DIR / "snapshots"
 
 EARNINGS_WINDOW_DAYS = 5
 
@@ -36,21 +39,27 @@ VIX_REGIME_MAP = {
 
 
 def _load_options(ticker: str) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+
     try:
         df = fetch_current_chains(ticker)
         if df is not None and not df.empty:
-            return df
+            frames.append(df)
     except Exception:
         pass
 
-    try:
-        df = fetch_historical_options(ticker)
-        if df is not None and not df.empty:
-            return df
-    except Exception:
-        pass
+    historical_df = load_cached_options(ticker, "historical")
+    if historical_df is not None and not historical_df.empty:
+        frames.append(historical_df)
 
-    raise ValueError(f"No options data available for {ticker}")
+    if not frames:
+        raise ValueError(f"No options data available for {ticker}")
+
+    combined = pd.concat(frames, ignore_index=True)
+    combined = combined.drop_duplicates(
+        subset=["date", "ticker", "expiration", "strike", "option_type"]
+    )
+    return combined.reset_index(drop=True)
 
 
 def _build_stock_lookup(stock_df: pd.DataFrame) -> dict[str, dict]:
@@ -289,9 +298,28 @@ def build_feature_matrix(ticker: str) -> pd.DataFrame:
         print(f"  Dropped {before_drop - after_drop} rows with NaN in critical columns")
 
     FEATURES_DIR.mkdir(parents=True, exist_ok=True)
+    FEATURE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     cache_path = FEATURES_DIR / f"{ticker}_features.csv"
     result_df.to_csv(cache_path, index=False)
     print(f"  Cached to {cache_path}")
+
+    snapshot_date = datetime.now().strftime("%Y-%m-%dT%H%M%S")
+    feature_snapshot_path = FEATURE_SNAPSHOT_DIR / f"{ticker}_features_{snapshot_date}.csv"
+    result_df.to_csv(feature_snapshot_path, index=False)
+    print(f"  Archived feature snapshot to {feature_snapshot_path}")
+
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    PROCESSED_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    processed_path = PROCESSED_DIR / f"{ticker}_pricing_features.csv"
+    result_df.to_csv(processed_path, index=False)
+    print(f"  Wrote processed dataset to {processed_path}")
+
+    processed_snapshot_path = (
+        PROCESSED_SNAPSHOT_DIR / f"{ticker}_pricing_features_{snapshot_date}.csv"
+    )
+    result_df.to_csv(processed_snapshot_path, index=False)
+    print(f"  Archived processed snapshot to {processed_snapshot_path}")
+
     print(f"  Final feature matrix: {result_df.shape[0]} rows x {result_df.shape[1]} columns")
 
     return result_df

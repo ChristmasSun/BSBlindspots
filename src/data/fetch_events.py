@@ -17,12 +17,19 @@ def fetch_earnings_dates(ticker: str, limit: int = 20, force: bool = False) -> p
     cache_path = EARNINGS_DIR / f"{ticker}_earnings.csv"
     if cache_path.exists() and not force:
         df = pd.read_csv(cache_path, parse_dates=["date"])
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
         return df
 
     EARNINGS_DIR.mkdir(parents=True, exist_ok=True)
 
     tk = yf.Ticker(ticker)
-    raw = tk.get_earnings_dates(limit=limit)
+    try:
+        raw = tk.get_earnings_dates(limit=limit)
+    except Exception:
+        df = pd.DataFrame(columns=["date", "ticker"])
+        df.to_csv(cache_path, index=False)
+        return df
 
     if raw is None or raw.empty:
         df = pd.DataFrame(columns=["date", "ticker"])
@@ -32,6 +39,8 @@ def fetch_earnings_dates(ticker: str, limit: int = 20, force: bool = False) -> p
     dates = []
     for idx in raw.index:
         dt = pd.Timestamp(idx)
+        if dt.tzinfo is not None:
+            dt = dt.tz_convert(None)
         dates.append(dt.normalize())
 
     unique_dates = sorted(set(dates))
@@ -80,10 +89,10 @@ def get_days_to_next_earnings(date: datetime.date, ticker: str, earnings_df: pd.
     if ticker_df.empty:
         return None
 
-    target = pd.Timestamp(date)
+    target = pd.Timestamp(date).tz_localize(None)
     future_dates = []
     for _, row in ticker_df.iterrows():
-        earn_date = pd.Timestamp(row["date"])
+        earn_date = pd.Timestamp(row["date"]).tz_localize(None)
         if earn_date >= target:
             future_dates.append(earn_date)
 
@@ -100,10 +109,10 @@ def get_days_since_last_earnings(date: datetime.date, ticker: str, earnings_df: 
     if ticker_df.empty:
         return None
 
-    target = pd.Timestamp(date)
+    target = pd.Timestamp(date).tz_localize(None)
     past_dates = []
     for _, row in ticker_df.iterrows():
-        earn_date = pd.Timestamp(row["date"])
+        earn_date = pd.Timestamp(row["date"]).tz_localize(None)
         if earn_date <= target:
             past_dates.append(earn_date)
 
