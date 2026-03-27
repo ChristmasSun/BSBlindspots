@@ -1,9 +1,41 @@
+"""
+Events data facade — re-exports all event functions for the feature builder.
+
+Original earnings + VIX functions are preserved here. Macro event functions
+(FOMC, CPI, NFP) are re-exported from src.data.events.* so that
+build_features.py can import everything from this single module.
+"""
+
 import datetime
 import os
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
+
+from src.data.events.fomc import (
+    get_fomc_dates,
+    days_to_next_fomc,
+    days_since_last_fomc,
+    in_fomc_window,
+)
+from src.data.events.cpi import (
+    get_cpi_dates,
+    days_to_next_cpi,
+    days_since_last_cpi,
+    in_cpi_window,
+)
+from src.data.events.nfp import (
+    get_nfp_dates,
+    days_to_next_nfp,
+    days_since_last_nfp,
+    in_nfp_window,
+)
+from src.data.events.unified import (
+    build_unified_calendar,
+    get_macro_event_features,
+    get_nearest_macro_event,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -168,6 +200,18 @@ def fetch_all(force: bool = False) -> None:
     print("Fetching VIX history...")
     vix_df = fetch_vix(force=force)
     print(f"  Got {len(vix_df)} VIX records")
+
+    print("Fetching FOMC dates...")
+    fomc_df = get_fomc_dates(force=force)
+    print(f"  Got {len(fomc_df)} FOMC dates")
+
+    print("Fetching CPI dates...")
+    cpi_df = get_cpi_dates(force=force)
+    print(f"  Got {len(cpi_df)} CPI dates")
+
+    print("Fetching NFP dates...")
+    nfp_df = get_nfp_dates(force=force)
+    print(f"  Got {len(nfp_df)} NFP dates")
 
     print("Done.")
 
