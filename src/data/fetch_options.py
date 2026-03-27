@@ -12,6 +12,8 @@ load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "options"
+CURRENT_SNAPSHOT_DIR = RAW_DIR / "current_snapshots"
+HISTORICAL_SNAPSHOT_DIR = RAW_DIR / "historical_snapshots"
 
 COLUMNS = [
     "date",
@@ -37,6 +39,8 @@ MIN_OI_FALLBACK = 100
 
 def _ensure_dirs() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
+    CURRENT_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    HISTORICAL_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _cache_path(ticker: str, suffix: str) -> Path:
@@ -53,6 +57,17 @@ def _load_cache(ticker: str, suffix: str) -> pd.DataFrame | None:
 def _save_cache(df: pd.DataFrame, ticker: str, suffix: str) -> None:
     _ensure_dirs()
     path = _cache_path(ticker, suffix)
+    df.to_csv(path, index=False)
+
+
+def load_cached_options(ticker: str, suffix: str) -> pd.DataFrame | None:
+    return _load_cache(ticker, suffix)
+
+
+def _archive_snapshot(df: pd.DataFrame, ticker: str, suffix: str, snapshot_dir: Path) -> None:
+    _ensure_dirs()
+    as_of = datetime.now().strftime("%Y-%m-%dT%H%M%S")
+    path = snapshot_dir / f"{ticker}_{suffix}_{as_of}.csv"
     df.to_csv(path, index=False)
 
 
@@ -135,6 +150,7 @@ def fetch_current_chains(ticker: str, use_cache: bool = True) -> pd.DataFrame:
 
     result = pd.DataFrame(rows, columns=COLUMNS)
     _save_cache(result, ticker, "current")
+    _archive_snapshot(result, ticker, "current", CURRENT_SNAPSHOT_DIR)
     return result
 
 
@@ -143,6 +159,8 @@ def fetch_historical_options(
     start_date: str = "",
     end_date: str = "",
     use_cache: bool = True,
+    max_contracts: int = 12,
+    request_pause_seconds: float = 12.0,
 ) -> pd.DataFrame:
     if use_cache:
         cached = _load_cache(ticker, "historical")
@@ -160,7 +178,7 @@ def fetch_historical_options(
     if not end_date:
         end_date = datetime.now().strftime("%Y-%m-%d")
     if not start_date:
-        start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
 
     stock_aggs = []
     for agg in client.list_aggs(
@@ -172,7 +190,20 @@ def fetch_historical_options(
         limit=50000,
     ):
         stock_aggs.append(agg)
-    time.sleep(12)
+    time.sleep(request_pause_seconds)
+
+    if not stock_aggs:
+        result = pd.DataFrame(columns=COLUMNS)
+        _save_cache(result, ticker, "historical")
+        _archive_snapshot(result, ticker, "historical", HISTORICAL_SNAPSHOT_DIR)
+        return result
+
+    anchor_price = float(stock_aggs[-1].close)
+    strike_price_gte = anchor_price * MIN_MONEYNESS
+    strike_price_lte = anchor_price * MAX_MONEYNESS
+    expiration_date_lte = (
+        datetime.strptime(end_date, "%Y-%m-%d").date() + timedelta(days=MAX_DTE)
+    ).strftime("%Y-%m-%d")
 
     price_map: dict[str, float] = {}
     for agg in stock_aggs:
@@ -182,11 +213,18 @@ def fetch_historical_options(
     contracts = []
     for contract in client.list_options_contracts(
         underlying_ticker=ticker,
-        expired=True,
-        limit=1000,
+        contract_type=None,
+        expiration_date_gte=start_date,
+        expiration_date_lte=expiration_date_lte,
+        as_of=end_date,
+        strike_price_gte=strike_price_gte,
+        strike_price_lte=strike_price_lte,
+        limit=max_contracts,
     ):
         contracts.append(contract)
-    time.sleep(12)
+        if len(contracts) >= max_contracts:
+            break
+    time.sleep(request_pause_seconds)
 
     rows = []
     request_count = 0
@@ -213,7 +251,7 @@ def fetch_historical_options(
 
         request_count += 1
         if request_count % 4 == 0:
-            time.sleep(12)
+            time.sleep(request_pause_seconds)
 
         for agg in opt_aggs:
             trade_date = datetime.fromtimestamp(agg.timestamp / 1000).strftime("%Y-%m-%d")
@@ -250,6 +288,7 @@ def fetch_historical_options(
 
     result = pd.DataFrame(rows, columns=COLUMNS)
     _save_cache(result, ticker, "historical")
+    _archive_snapshot(result, ticker, "historical", HISTORICAL_SNAPSHOT_DIR)
     return result
 
 

@@ -17,6 +17,7 @@ venv/
 data/raw/*
 data/processed/*
 data/features/*
+data/exports/*
 !data/**/.gitkeep
 
 # Jupyter

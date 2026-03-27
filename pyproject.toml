@@ -19,6 +19,7 @@ dependencies = [
     "polygon-api-client",
     "lxml",
     "python-dotenv",
+    "XlsxWriter",
     "jupyter",
     "pytest",
 ]
