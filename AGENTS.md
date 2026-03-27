@@ -190,11 +190,15 @@ After training, use SHAP to answer:
 
 ## Key Research Hypotheses to Test
 
-1. BS mispricing is larger within earnings windows
-2. High VIX regime → BS systematically underprices OTM puts
-3. Short-dated options (DTE < 14) have larger relative errors
-4. Liquidity (bid-ask spread) correlates with mispricing magnitude
-5. ML-corrected price = BS + model_prediction outperforms vanilla BS on held-out data
+| Hypothesis | Data Requirements | Status |
+|---|---|---|
+| BS mispricing is larger within earnings windows | Contracts from at least 3-4 earnings windows + gaps between | Needs multi-date data |
+| High VIX regime → BS systematically underprices OTM puts | Days in at least 2 different VIX regimes | Needs multi-date data |
+| Short-dated options (DTE < 14) have larger relative errors | Already testable from any single day | Ready |
+| Liquidity (bid-ask spread) correlates with mispricing magnitude | Already testable from any single day | Ready |
+| ML-corrected price = BS + model_prediction outperforms vanilla BS on held-out data | Enough dates for a real out-of-sample test period | Needs multi-date data |
+
+**Target:** ~50,000+ contracts across 100+ trading days for credible SHAP-driven conclusions.
 
 ## Coding Conventions
 

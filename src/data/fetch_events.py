@@ -115,6 +115,41 @@ def get_days_since_last_earnings(date: datetime.date, ticker: str, earnings_df: 
     return int(delta)
 
 
+def get_earnings_direction(date: datetime.date, ticker: str, earnings_df: pd.DataFrame, stock_df: pd.DataFrame) -> float | None:
+    ticker_df = earnings_df[earnings_df["ticker"] == ticker].copy()
+    if ticker_df.empty:
+        return None
+
+    target = pd.Timestamp(date).tz_localize(None)
+    past_dates = []
+    for _, row in ticker_df.iterrows():
+        earn_date = pd.Timestamp(row["date"]).tz_localize(None)
+        if earn_date <= target:
+            past_dates.append(earn_date)
+
+    if not past_dates:
+        return None
+
+    nearest = max(past_dates)
+
+    stock_idx = stock_df.index.map(lambda x: pd.Timestamp(x).tz_localize(None))
+    on_or_after = []
+    for i in range(len(stock_idx)):
+        if stock_idx[i] >= nearest:
+            on_or_after.append(i)
+
+    if len(on_or_after) < 2:
+        return None
+
+    close_before = float(stock_df.iloc[on_or_after[0]]["Close"])
+    close_after = float(stock_df.iloc[on_or_after[1]]["Close"])
+
+    if close_before <= 0:
+        return None
+
+    return (close_after - close_before) / close_before
+
+
 def get_vix_regime(vix_value: float) -> str:
     if vix_value < 15:
         return "low"

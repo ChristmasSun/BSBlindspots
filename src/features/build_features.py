@@ -12,6 +12,7 @@ from src.data.fetch_events import (
     fetch_vix,
     get_days_to_next_earnings,
     get_days_since_last_earnings,
+    get_earnings_direction,
     get_vix_regime,
 )
 from src.pricing.black_scholes import (
@@ -222,6 +223,8 @@ def build_feature_matrix(ticker: str) -> pd.DataFrame:
         if days_since_earn is not None and days_since_earn <= EARNINGS_WINDOW_DAYS:
             in_earnings_window = 1
 
+        earn_direction = get_earnings_direction(trade_date, ticker, earnings_df, stock_df)
+
         bid_ask_spread = ask - bid
         mid_for_rel = mid_price if mid_price > 0 else 1.0
         bid_ask_rel = bid_ask_spread / mid_for_rel
@@ -258,6 +261,7 @@ def build_feature_matrix(ticker: str) -> pd.DataFrame:
             "days_to_earnings": days_to_earn,
             "days_since_earnings": days_since_earn,
             "in_earnings_window": in_earnings_window,
+            "earnings_direction": earn_direction,
             "bid_ask_spread": bid_ask_spread,
             "bid_ask_rel": bid_ask_rel,
             "log_volume": log_volume,
